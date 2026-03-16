@@ -2,7 +2,6 @@ package service
 
 import (
 	"auth-service/internal/domain"
-	"auth-service/internal/pkg/otp"
 	"auth-service/internal/repository"
 	"auth-service/pkg/otp"
 	"auth-service/pkg/password"
@@ -55,7 +54,7 @@ func (s *AuthService) SendOTP(phone string) error {
 
 func (s *AuthService) Register(phone, code, username, rawPassword string) (string, *domain.User, error) {
 	existing, err := s.UserRepo.FindByPhone(phone)
-	if err != nil && existing != nil {
+	if err == nil && existing != nil {
 		return "", nil, errors.New("phone number already registered")
 	}
 
@@ -65,7 +64,7 @@ func (s *AuthService) Register(phone, code, username, rawPassword string) (strin
 
 	otpRow, err := s.OTPRepo.GetLatestActive(phone, code)
 	if err != nil {
-		if error.IS(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil, errors.New("invalid OTP code")
 		}
 		return "", nil, err

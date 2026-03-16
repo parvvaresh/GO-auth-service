@@ -10,6 +10,10 @@ type OTPRepository struct {
 	DB *sql.DB
 }
 
+func NewOTPRepository(db *sql.DB) *OTPRepository {
+	return &OTPRepository{DB: db}
+}
+
 func (r *OTPRepository) Save(phone, code string, expiresAt time.Time) error {
 	query := `
 	INSERT INTO otp_codes(phone, code, expires_at, used)
