@@ -1,18 +1,23 @@
 package handler
 
 import (
-	"auth-service/internal/domain"
-	"auth-service/internal/service"
 	"net/http"
+
+	"auth-service/internal/domain"
 
 	"github.com/gin-gonic/gin"
 )
 
-type ProfileHandler struct {
-	Service *service.ProfileService
+type ProfileUsecase interface {
+	Get(userID int) (*domain.Profile, error)
+	Update(profile *domain.Profile) error
 }
 
-func NewProfileHandler(s *service.ProfileService) *ProfileHandler {
+type ProfileHandler struct {
+	Service ProfileUsecase
+}
+
+func NewProfileHandler(s ProfileUsecase) *ProfileHandler {
 	return &ProfileHandler{Service: s}
 }
 

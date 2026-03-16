@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"auth-service/internal/config"
 	"auth-service/internal/handler"
 	"auth-service/internal/infrastructure"
@@ -8,7 +10,6 @@ import (
 	"auth-service/internal/router"
 	"auth-service/internal/service"
 	"auth-service/pkg/sms"
-	"log"
 
 	"github.com/gin-gonic/gin"
 )

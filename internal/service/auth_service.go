@@ -1,31 +1,52 @@
 package service
 
 import (
-	"auth-service/internal/domain"
-	"auth-service/internal/repository"
-	"auth-service/pkg/otp"
-	"auth-service/pkg/password"
-	"auth-service/pkg/sms"
-	"auth-service/pkg/token"
 	"database/sql"
 	"errors"
 	"fmt"
 	"time"
+
+	"auth-service/internal/domain"
+	"auth-service/pkg/otp"
+	"auth-service/pkg/password"
+	"auth-service/pkg/token"
 )
 
+type UserRepository interface {
+	Create(user *domain.User) error
+	FindByPhone(phone string) (*domain.User, error)
+	FindByID(id int) (*domain.User, error)
+}
+
+type ProfileRepository interface {
+	CreateEmpty(userID int) error
+	GetByUserID(userID int) (*domain.Profile, error)
+	Update(profile *domain.Profile) error
+}
+
+type OTPRepository interface {
+	Save(phone, code string, expiresAt time.Time) error
+	GetLatestActive(phone, code string) (*domain.OTPCode, error)
+	MarkUsed(id int) error
+}
+
+type SMSSender interface {
+	Send(phone string, message string) error
+}
+
 type AuthService struct {
-	UserRepo    *repository.UserRepository
-	ProfileRepo *repository.ProfileRepository
-	OTPRepo     *repository.OTPRepository
-	SMSSender   sms.Sender
+	UserRepo    UserRepository
+	ProfileRepo ProfileRepository
+	OTPRepo     OTPRepository
+	SMSSender   SMSSender
 	JWTSecret   string
 }
 
 func NewAuthService(
-	userRepo *repository.UserRepository,
-	profileRepo *repository.ProfileRepository,
-	otpRepo *repository.OTPRepository,
-	smsSender sms.Sender,
+	userRepo UserRepository,
+	profileRepo ProfileRepository,
+	otpRepo OTPRepository,
+	smsSender SMSSender,
 	jwtSecret string,
 ) *AuthService {
 	return &AuthService{
@@ -42,6 +63,7 @@ func (s *AuthService) SendOTP(phone string) error {
 	if err != nil {
 		return err
 	}
+
 	expiresAt := time.Now().Add(2 * time.Minute)
 
 	if err := s.OTPRepo.Save(phone, code, expiresAt); err != nil {
@@ -49,15 +71,13 @@ func (s *AuthService) SendOTP(phone string) error {
 	}
 
 	return s.SMSSender.Send(phone, fmt.Sprintf("Your OTP code is: %s", code))
-
 }
 
 func (s *AuthService) Register(phone, code, username, rawPassword string) (string, *domain.User, error) {
 	existing, err := s.UserRepo.FindByPhone(phone)
 	if err == nil && existing != nil {
-		return "", nil, errors.New("phone number already registered")
+		return "", nil, errors.New("user already exists")
 	}
-
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", nil, err
 	}
@@ -65,13 +85,15 @@ func (s *AuthService) Register(phone, code, username, rawPassword string) (strin
 	otpRow, err := s.OTPRepo.GetLatestActive(phone, code)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", nil, errors.New("invalid OTP code")
+			return "", nil, errors.New("invalid otp")
 		}
 		return "", nil, err
 	}
+
 	if time.Now().After(otpRow.ExpiresAt) {
-		return "", nil, errors.New("OTP code expired")
+		return "", nil, errors.New("otp expired")
 	}
+
 	hashed, err := password.Hash(rawPassword)
 	if err != nil {
 		return "", nil, err
@@ -108,10 +130,11 @@ func (s *AuthService) Login(phone, rawPassword string) (string, *domain.User, er
 	user, err := s.UserRepo.FindByPhone(phone)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", nil, errors.New("invalid phone or password")
+			return "", nil, errors.New("invalid credentials")
 		}
 		return "", nil, err
 	}
+
 	if err := password.Check(user.PasswordHash, rawPassword); err != nil {
 		return "", nil, errors.New("invalid credentials")
 	}
@@ -122,5 +145,4 @@ func (s *AuthService) Login(phone, rawPassword string) (string, *domain.User, er
 	}
 
 	return jwtToken, user, nil
-
 }

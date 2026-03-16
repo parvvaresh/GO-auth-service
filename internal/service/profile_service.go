@@ -1,22 +1,24 @@
 package service
 
-import (
-	"auth-service/internal/domain"
-	"auth-service/internal/repository"
-)
+import "auth-service/internal/domain"
 
-type ProfileService struct {
-	ProfileRepo *repository.ProfileRepository
+type ProfileRepo interface {
+	GetByUserID(userID int) (*domain.Profile, error)
+	Update(profile *domain.Profile) error
 }
 
-func NewProfileService(profileRepo *repository.ProfileRepository) *ProfileService {
-	return &ProfileService{ProfileRepo: profileRepo}
+type ProfileService struct {
+	Repo ProfileRepo
+}
+
+func NewProfileService(repo ProfileRepo) *ProfileService {
+	return &ProfileService{Repo: repo}
 }
 
 func (s *ProfileService) Get(userID int) (*domain.Profile, error) {
-	return s.ProfileRepo.GetByUserID(userID)
+	return s.Repo.GetByUserID(userID)
 }
 
 func (s *ProfileService) Update(profile *domain.Profile) error {
-	return s.ProfileRepo.Update(profile)
+	return s.Repo.Update(profile)
 }

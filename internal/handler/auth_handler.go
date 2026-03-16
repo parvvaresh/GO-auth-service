@@ -1,17 +1,24 @@
 package handler
 
 import (
-	"auth-service/internal/service"
 	"net/http"
+
+	"auth-service/internal/domain"
 
 	"github.com/gin-gonic/gin"
 )
 
-type AuthHandler struct {
-	Service *service.AuthService
+type AuthUsecase interface {
+	SendOTP(phone string) error
+	Register(phone, code, username, password string) (string, *domain.User, error)
+	Login(phone, password string) (string, *domain.User, error)
 }
 
-func NewAuthHandler(s *service.AuthService) *AuthHandler {
+type AuthHandler struct {
+	Service AuthUsecase
+}
+
+func NewAuthHandler(s AuthUsecase) *AuthHandler {
 	return &AuthHandler{Service: s}
 }
 
